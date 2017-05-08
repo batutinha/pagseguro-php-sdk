@@ -1,19 +1,25 @@
 <?php
 
+use PagSeguro\Library;
+use PagSeguro\Services\Transactions;
+use PagSeguro\Configuration\Configure;
+
 require_once "../../../vendor/autoload.php";
 
-\PagSeguro\Library::initialize();
+Library::initialize();
+Configure::fromXmlFile('./path/to/file/conf.xml');
 
-$code = '0B64FD7B4F9641378E9C9462982A8B95';
+
+$code = '6AE2DCA63476443ABFC3EDD703243CFB';
 
 try {
-    $response = \PagSeguro\Services\Transactions\Search\Code::search(
-        \PagSeguro\Configuration\Configure::getAccountCredentials(),
+    /** @var $response \PagSeguro\Parsers\Transaction\Response */
+    $response = Transactions\Search\Code::search(
+        Configure::getAccountCredentials(),
         $code
     );
 
-    echo "<pre>";
-    print_r($response);
+    var_dump($response);
 } catch (Exception $e) {
     die($e->getMessage());
 }
