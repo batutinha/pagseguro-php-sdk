@@ -29,6 +29,7 @@ use PagSeguro\Domains\ApplicationCredentials;
 use PagSeguro\Domains\Charset;
 use PagSeguro\Domains\Environment;
 use PagSeguro\Domains\Log;
+use PagSeguro\Parsers\ConfigureParser;
 use PagSeguro\Resources\Responsibility;
 
 /**
@@ -37,24 +38,91 @@ use PagSeguro\Resources\Responsibility;
  */
 class Configure
 {
+    use ConfigureParser;
+
+    private static $configGenerated = false;
+
     private static $accountCredentials;
     private static $applicationCredentials;
     private static $charset;
     private static $environment;
     private static $log;
 
+    private static $defaultConf = [
+        'environment' => null,
+        'credentials' => [
+            'email' => null,
+            'token' => [
+                'production' => null,
+                'sandbox' => null
+            ],
+            'appId' => [
+                'production' => null,
+                'sandbox' => null
+            ],
+            'appKey' => [
+                'production' => null,
+                'sandbox' => null
+            ]
+        ],
+        'charset' => 'UTF-8',
+        'log' => [
+            'active' => false,
+            'location' => null
+        ]
+    ];
+
+    public static function fromLib()
+    {
+        if(self::$configGenerated === true){
+            return;
+        }
+
+        $confLib = Responsibility::configuration();
+
+        $confLib['credentials']['token'] = $confLib['credentials']['token']['environment'];
+        $confLib['credentials']['appId'] = $confLib['credentials']['appId']['environment'];
+        $confLib['credentials']['appKey'] = $confLib['credentials']['appKey']['environment'];
+
+        self::combineConfig($confLib);
+    }
+
+    public static function fromArray(array $params = [])
+    {
+        if(self::$configGenerated === false){
+            self::combineConfig($params);
+        }
+    }
+
+    public static function fromXmlFile(string $file = null)
+    {
+        if(self::$configGenerated === true){
+            return;
+        }
+        $fileExt = pathinfo($file, PATHINFO_EXTENSION);
+        if($fileExt !== 'xml' and !file_exists($file)){
+            throw new \InvalidArgumentException('File configuration not found');
+        }
+
+        $confXml = new \SimpleXMLElement($file, null, true);
+        $confArr = self::xmlToArray($confXml);
+
+        self::combineConfig($confArr);
+    }
+
     /**
      * @return AccountCredentials
      */
     public static function getAccountCredentials()
     {
-        if (! isset(self::$accountCredentials)) {
-            $configuration = Responsibility::configuration();
-            self::setAccountCredentials(
-                $configuration['credentials']['email'],
-                $configuration['credentials']['token']['environment'][$configuration['environment']]
-            );
+        if (self::$accountCredentials instanceof AccountCredentials) {
+            return self::$accountCredentials;
         }
+
+        self::setAccountCredentials(
+            self::$defaultConf['credentials']['email'],
+            self::$defaultConf['credentials']['token'][self::$defaultConf['environment']]
+        );
 
         return self::$accountCredentials;
     }
@@ -75,13 +143,14 @@ class Configure
      */
     public static function getApplicationCredentials()
     {
-        if (! isset(self::$applicationCredentials)) {
-            $configuration = Responsibility::configuration();
-            self::setApplicationCredentials(
-                $configuration['credentials']['appId']['environment'][$configuration['environment']], 
-                $configuration['credentials']['appKey']['environment'][$configuration['environment']]
-            );
+        if(self::$applicationCredentials instanceof ApplicationCredentials){
+            return self::$applicationCredentials;
         }
+
+        self::setApplicationCredentials(
+            self::$defaultConf['credentials']['appId'][self::$defaultConf['environment']],
+            self::$defaultConf['credentials']['appKey'][self::$defaultConf['environment']]
+        );
 
         return self::$applicationCredentials;
     }
@@ -102,10 +171,10 @@ class Configure
      */
     public static function getEnvironment()
     {
-        if (! isset(self::$environment)) {
-            $configuration = Responsibility::configuration();
-            self::setEnvironment($configuration['environment']);
+        if (!empty(self::$environment)) {
+            return self::$environment;
         }
+        self::setEnvironment(self::$defaultConf['environment']);
         return self::$environment;
     }
     
@@ -123,10 +192,10 @@ class Configure
      */
     public static function getCharset()
     {
-        if (! isset(self::$charset)) {
-            $configuration = Responsibility::configuration();
-            self::setCharset($configuration['charset']);
+        if (!empty(self::$charset)) {
+            return self::$charset;
         }
+        self::setCharset(self::$defaultConf['charset']);
         return self::$charset;
     }
     
@@ -144,13 +213,13 @@ class Configure
      */
     public static function getLog()
     {
-        if (! isset(self::$log)) {
-            $configuration = Responsibility::configuration();
-            self::setLog(
-                $configuration['log']['active'] === "false" ? false : true,
-                $configuration['log']['location']
-            );
+        if (self::$log instanceof Log) {
+            return self::$log;
         }
+        self::setLog(
+            self::$defaultConf['log']['active'] === "false" ? false : true,
+            self::$defaultConf['log']['location']
+        );
         return self::$log;
     }
     

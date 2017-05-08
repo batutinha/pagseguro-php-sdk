@@ -9,7 +9,7 @@
 namespace PagSeguro\Parsers;
 
 
-trait XmlToArray
+trait ConfigureParser
 {
     private static function xmlToArray(\SimpleXMLElement $element): array
     {
@@ -28,5 +28,23 @@ trait XmlToArray
         }
 
         return $element;
+    }
+
+    private static function combineConfig(array $data = []): array
+    {
+        if(empty($data)){
+            throw new \InvalidArgumentException('Config for merge is empty');
+        }
+
+        $diffKeys = array_keys(array_diff_key($data, self::$defaultConf));
+        if(!empty($diffKeys)){
+            foreach ($diffKeys as $key){
+                unset($data[$key]);
+            }
+        }
+
+        self::$defaultConf = array_replace_recursive(self::$defaultConf, $data);
+        self::$configGenerated = true;
+        return self::$defaultConf;
     }
 }
